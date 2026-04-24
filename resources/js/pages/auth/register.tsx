@@ -14,6 +14,10 @@ interface RegisterForm {
     email: string;
     password: string;
     password_confirmation: string;
+    employee_id: string;
+    job_title: string;
+    department: string;
+    phone: string;
 }
 
 export default function Register() {
@@ -22,6 +26,10 @@ export default function Register() {
         email: '',
         password: '',
         password_confirmation: '',
+        employee_id: '',
+        job_title: '',
+        department: '',
+        phone: '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -37,7 +45,7 @@ export default function Register() {
             <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Name</Label>
+                        <Label htmlFor="name">Full Name</Label>
                         <Input
                             id="name"
                             type="text"
@@ -69,13 +77,73 @@ export default function Register() {
                         <InputError message={errors.email} />
                     </div>
 
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="employee_id">Employee ID</Label>
+                            <Input
+                                id="employee_id"
+                                type="text"
+                                tabIndex={3}
+                                value={data.employee_id}
+                                onChange={(e) => setData('employee_id', e.target.value)}
+                                disabled={processing}
+                                placeholder="EMP-0001"
+                            />
+                            <InputError message={errors.employee_id} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="job_title">Job Title</Label>
+                            <Input
+                                id="job_title"
+                                type="text"
+                                tabIndex={4}
+                                value={data.job_title}
+                                onChange={(e) => setData('job_title', e.target.value)}
+                                disabled={processing}
+                                placeholder="Support Engineer"
+                            />
+                            <InputError message={errors.job_title} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="department">Department</Label>
+                            <Input
+                                id="department"
+                                type="text"
+                                tabIndex={5}
+                                value={data.department}
+                                onChange={(e) => setData('department', e.target.value)}
+                                disabled={processing}
+                                placeholder="Application Support"
+                            />
+                            <InputError message={errors.department} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="phone">Phone</Label>
+                            <Input
+                                id="phone"
+                                type="tel"
+                                tabIndex={6}
+                                value={data.phone}
+                                onChange={(e) => setData('phone', e.target.value)}
+                                disabled={processing}
+                                placeholder="+233 XX XXX XXXX"
+                            />
+                            <InputError message={errors.phone} />
+                        </div>
+                    </div>
+
                     <div className="grid gap-2">
                         <Label htmlFor="password">Password</Label>
                         <Input
                             id="password"
                             type="password"
                             required
-                            tabIndex={3}
+                            tabIndex={7}
                             autoComplete="new-password"
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
@@ -91,7 +159,7 @@ export default function Register() {
                             id="password_confirmation"
                             type="password"
                             required
-                            tabIndex={4}
+                            tabIndex={8}
                             autoComplete="new-password"
                             value={data.password_confirmation}
                             onChange={(e) => setData('password_confirmation', e.target.value)}
@@ -101,7 +169,7 @@ export default function Register() {
                         <InputError message={errors.password_confirmation} />
                     </div>
 
-                    <Button type="submit" className="mt-2 w-full" tabIndex={5} disabled={processing}>
+                    <Button type="submit" className="mt-2 w-full" tabIndex={9} disabled={processing}>
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         Create account
                     </Button>
@@ -109,7 +177,7 @@ export default function Register() {
 
                 <div className="text-muted-foreground text-center text-sm">
                     Already have an account?{' '}
-                    <TextLink href={route('login')} tabIndex={6}>
+                    <TextLink href={route('login')} tabIndex={10}>
                         Log in
                     </TextLink>
                 </div>
