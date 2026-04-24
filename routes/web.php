@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\ActivityUpdateController;
+use App\Http\Controllers\DailyViewController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -16,6 +17,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('activities', ActivityController::class)->except(['show']);
     Route::post('activity-updates', [ActivityUpdateController::class, 'store'])->name('activity_updates.store');
+
+    Route::get('daily', DailyViewController::class)->name('daily.index');
 });
 
 require __DIR__.'/settings.php';

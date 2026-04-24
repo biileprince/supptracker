@@ -52,4 +52,17 @@ export interface Activity {
     is_recurring: boolean;
     created_at: string;
     updated_at: string;
+    updates?: ActivityUpdate[];
+}
+
+export interface ActivityUpdate {
+    id: number;
+    activity_id: number;
+    user_id: number;
+    user?: { id: number; name: string; avatar?: string };
+    status: 'pending' | 'in_progress' | 'done';
+    remark: string | null;
+    activity_date: string;
+    created_at: string;
+    updated_at: string;
 }
