@@ -32,9 +32,24 @@ export interface User {
     id: number;
     name: string;
     email: string;
+    role: string;
+    employee_id?: string;
+    job_title?: string;
+    department?: string;
+    phone?: string;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
+}
+
+export interface Activity {
+    id: number;
+    title: string;
+    description: string | null;
+    category: string | null;
+    is_recurring: boolean;
+    created_at: string;
+    updated_at: string;
 }
