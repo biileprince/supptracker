@@ -10,24 +10,28 @@ class TursoServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->resolving('db', function ($db) {
+            $db->extend('libsql', function ($config, $name) {
+                return $this->createLibsqlConnection($config, $name);
+            });
+        });
     }
 
     public function boot(): void
     {
-        // Register libsql connection resolver
-        Connection::resolverFor('libsql', function ($connection, $database, $prefix, $config) {
-            return $this->createLibsqlConnection($config, $prefix);
-        });
+        //
     }
 
-    protected function createLibsqlConnection($config, $prefix)
+    protected function createLibsqlConnection($config, $name)
     {
         $url = $config['url'] ?? null;
-        $token = $config['password'] ?? null;
+        $token = $config['password'] ?? $config['auth_token'] ?? null;
 
-        if (!$url || !$token) {
-            throw new \RuntimeException('Turso database URL and auth token are required');
+        if (empty($url) || empty($token)) {
+            $missing = [];
+            if (empty($url)) $missing[] = 'URL';
+            if (empty($token)) $missing[] = 'Token';
+            throw new \RuntimeException('Turso configuration missing: ' . implode(' and ', $missing) . '. Check environment variables on Laravel Cloud (DB_URL / TURSO_DATABASE_URL and TURSO_AUTH_TOKEN).');
         }
 
         // Try native SDK first (PHP 8.3+ with FFI)
