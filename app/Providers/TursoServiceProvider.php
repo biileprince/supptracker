@@ -44,3 +44,5 @@ class TursoServiceProvider extends ServiceProvider
         // Use HTTP API adapter (PHP 8.2 compatible)
         $pdo = new TursoPdoAdapter($url, $token);
         return new Connection($pdo, $database, $prefix, $config);
+    }
+}
