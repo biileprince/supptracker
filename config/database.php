@@ -44,6 +44,7 @@ return [
 
         'libsql' => [
             'driver' => 'libsql',
+            'database' => env('DB_DATABASE', 'main'),
             // Prefer explicit Turso env var, fall back to generic DB_URL for compatibility
             'url' => env('TURSO_DATABASE_URL', env('DB_URL')),
             // Laravel adapter expects a password field for the libsql/Turso driver
