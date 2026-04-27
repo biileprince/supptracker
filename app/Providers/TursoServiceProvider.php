@@ -24,7 +24,7 @@ class TursoServiceProvider extends ServiceProvider
     protected function createLibsqlConnection($config, $prefix)
     {
         $url = $config['url'] ?? null;
-        $token = $config['auth_token'] ?? null;
+        $token = $config['password'] ?? null;
 
         if (!$url || !$token) {
             throw new \RuntimeException('Turso database URL and auth token are required');
