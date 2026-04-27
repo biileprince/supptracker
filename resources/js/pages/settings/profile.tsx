@@ -25,6 +25,10 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
     const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
         name: auth.user.name,
         email: auth.user.email,
+        employee_id: auth.user.employee_id ?? '',
+        job_title: auth.user.job_title ?? '',
+        department: auth.user.department ?? '',
+        phone: auth.user.phone ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -73,6 +77,62 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                             />
 
                             <InputError className="mt-2" message={errors.email} />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="employee_id">Employee ID</Label>
+
+                                <Input
+                                    id="employee_id"
+                                    value={data.employee_id}
+                                    onChange={(e) => setData('employee_id', e.target.value)}
+                                    placeholder="EMP-0001"
+                                />
+
+                                <InputError className="mt-2" message={errors.employee_id} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="job_title">Job Title</Label>
+
+                                <Input
+                                    id="job_title"
+                                    value={data.job_title}
+                                    onChange={(e) => setData('job_title', e.target.value)}
+                                    placeholder="Support Engineer"
+                                />
+
+                                <InputError className="mt-2" message={errors.job_title} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="department">Department</Label>
+
+                                <Input
+                                    id="department"
+                                    value={data.department}
+                                    onChange={(e) => setData('department', e.target.value)}
+                                    placeholder="Application Support"
+                                />
+
+                                <InputError className="mt-2" message={errors.department} />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="phone">Phone</Label>
+
+                                <Input
+                                    id="phone"
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                    placeholder="+233 XX XXX XXXX"
+                                />
+
+                                <InputError className="mt-2" message={errors.phone} />
+                            </div>
                         </div>
 
                         {mustVerifyEmail && auth.user.email_verified_at === null && (

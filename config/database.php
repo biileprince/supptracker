@@ -42,6 +42,15 @@ return [
             'synchronous' => null,
         ],
 
+        'libsql' => [
+            'driver' => 'libsql',
+            // Prefer explicit Turso env var, fall back to generic DB_URL for compatibility
+            'url' => env('TURSO_DATABASE_URL', env('DB_URL')),
+            // Laravel adapter expects a password field for the libsql/Turso driver
+            'password' => env('TURSO_AUTH_TOKEN'),
+            'prefix' => '',
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
@@ -147,7 +156,7 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_database_'),
+            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_') . '_database_'),
             'persistent' => env('REDIS_PERSISTENT', false),
         ],
 

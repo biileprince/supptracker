@@ -14,54 +14,122 @@ class ActivitySeeder extends Seeder
      */
     public function run(): void
     {
-        // Create an admin user
-        $admin = User::factory()->admin()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@supptracker.com',
-            'employee_id' => 'EMP-0001',
-            'job_title' => 'Team Lead',
-            'department' => 'Application Support',
-        ]);
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@supptracker.com'],
+            [
+                'name' => 'Amina Bello',
+                'password' => 'password',
+                'role' => 'admin',
+                'employee_id' => 'EMP-0001',
+                'job_title' => 'Support Team Lead',
+                'department' => 'Application Support',
+                'phone' => '+234 801 000 0001',
+                'email_verified_at' => now(),
+            ],
+        );
 
-        // Create team members
-        $members = User::factory(4)->create();
+        $teamMembers = collect([
+            ['email' => 'chioma.adebayo@supptracker.com', 'name' => 'Chioma Adebayo', 'employee_id' => 'EMP-0002', 'job_title' => 'Application Support Analyst', 'department' => 'Application Support', 'phone' => '+234 801 000 0002'],
+            ['email' => 'daniel.okoro@supptracker.com', 'name' => 'Daniel Okoro', 'employee_id' => 'EMP-0003', 'job_title' => 'Operations Analyst', 'department' => 'Operations', 'phone' => '+234 801 000 0003'],
+            ['email' => 'fatima.sule@supptracker.com', 'name' => 'Fatima Sule', 'employee_id' => 'EMP-0004', 'job_title' => 'Infrastructure Engineer', 'department' => 'Infrastructure', 'phone' => '+234 801 000 0004'],
+            ['email' => 'emeka.nwosu@supptracker.com', 'name' => 'Emeka Nwosu', 'employee_id' => 'EMP-0005', 'job_title' => 'Service Desk Analyst', 'department' => 'Support', 'phone' => '+234 801 000 0005'],
+        ])->map(fn(array $data) => User::updateOrCreate(
+            ['email' => $data['email']],
+            array_merge($data, [
+                'password' => 'password',
+                'role' => 'member',
+                'email_verified_at' => now(),
+            ]),
+        ));
 
-        // Create realistic activities
         $activities = collect([
-            ['title' => 'Daily SMS count vs. log comparison', 'description' => 'Compare the daily SMS count from the platform dashboard against the count from application logs to identify discrepancies.', 'category' => 'SMS'],
-            ['title' => 'Server health check', 'description' => 'Verify CPU, memory, disk usage and service status across all production servers.', 'category' => 'Infrastructure'],
-            ['title' => 'Ticket queue review', 'description' => 'Review all open support tickets, prioritize critical issues, and assign to team members.', 'category' => 'Support'],
-            ['title' => 'Database backup verification', 'description' => 'Ensure all scheduled database backups completed successfully and verify backup integrity.', 'category' => 'Infrastructure'],
-            ['title' => 'API response time monitoring', 'description' => 'Check API response times across all endpoints and flag any exceeding SLA thresholds.', 'category' => 'Performance'],
-            ['title' => 'Error log review', 'description' => 'Analyze application error logs for new or recurring issues requiring attention.', 'category' => 'Monitoring'],
-            ['title' => 'Scheduled job execution verification', 'description' => 'Verify all cron jobs and scheduled tasks executed as expected.', 'category' => 'Automation'],
-            ['title' => 'User access audit', 'description' => 'Review user access permissions and deactivate stale accounts.', 'category' => 'Security'],
-            ['title' => 'Platform uptime check', 'description' => 'Verify platform availability across all regions and document any downtime incidents.', 'category' => 'Infrastructure'],
-            ['title' => 'Client escalation follow-up', 'description' => 'Follow up on all escalated client issues and provide status updates.', 'category' => 'Support'],
-        ])->map(fn (array $data) => Activity::create($data));
+            [
+                'title' => 'Daily SMS reconciliation',
+                'description' => 'Compare the SMS totals from the delivery platform against the application audit log and reconcile any mismatches before 10:00 AM.',
+                'category' => 'SMS',
+            ],
+            [
+                'title' => 'Production server health check',
+                'description' => 'Review CPU, memory, disk space, and service status across the production fleet and flag abnormal readings immediately.',
+                'category' => 'Infrastructure',
+            ],
+            [
+                'title' => 'Open ticket triage',
+                'description' => 'Review newly assigned tickets, prioritise critical incidents, and assign follow-up owners for same-day resolution.',
+                'category' => 'Support',
+            ],
+            [
+                'title' => 'Database backup verification',
+                'description' => 'Confirm scheduled backups completed successfully and sample-restore the latest backup to validate recoverability.',
+                'category' => 'Infrastructure',
+            ],
+            [
+                'title' => 'API latency review',
+                'description' => 'Check API response times against the SLA baseline and escalate any endpoint that crosses the alert threshold.',
+                'category' => 'Performance',
+            ],
+            [
+                'title' => 'Application error log review',
+                'description' => 'Scan application logs for repeat exceptions, trace the root cause, and log corrective actions for the next release.',
+                'category' => 'Monitoring',
+            ],
+            [
+                'title' => 'Scheduled job execution verification',
+                'description' => 'Validate that all scheduled jobs ran successfully and investigate any missed or delayed job execution.',
+                'category' => 'Automation',
+            ],
+            [
+                'title' => 'User access audit',
+                'description' => 'Review active user access, confirm role assignments, and disable stale accounts that no longer need access.',
+                'category' => 'Security',
+            ],
+            [
+                'title' => 'Platform uptime check',
+                'description' => 'Verify uptime across the customer-facing portal and note any short outages, restarts, or degraded regions.',
+                'category' => 'Infrastructure',
+            ],
+            [
+                'title' => 'Escalation follow-up',
+                'description' => 'Follow up on escalated incidents, capture customer updates, and ensure every escalation has a next action owner.',
+                'category' => 'Support',
+            ],
+        ])->map(fn(array $data) => Activity::updateOrCreate(
+            ['title' => $data['title']],
+            array_merge($data, ['is_recurring' => true]),
+        ));
 
-        // Create activity updates for the past 7 days
-        $allUsers = $members->push($admin);
+        $allUsers = $teamMembers->prepend($admin)->values();
+        $statusCycle = ['done', 'in_progress', 'done', 'done', 'pending', 'in_progress', 'done'];
 
         foreach (range(0, 6) as $daysAgo) {
-            $date = now()->subDays($daysAgo)->toDateString();
+            $activityDate = now()->subDays($daysAgo)->toDateString();
 
-            foreach ($activities as $activity) {
-                // Each activity gets 1-3 updates per day from different team members
-                $updaters = $allUsers->random(rand(1, 3));
+            $activities->values()->each(function (Activity $activity, int $activityIndex) use ($allUsers, $statusCycle, $activityDate, $daysAgo): void {
+                $user = $allUsers->get(($activityIndex + $daysAgo) % $allUsers->count());
+                $status = $statusCycle[($activityIndex + $daysAgo) % count($statusCycle)];
+                $remark = match ($status) {
+                    'done' => 'Completed and recorded in the daily tracker.',
+                    'in_progress' => 'Work is underway and awaiting final validation.',
+                    default => 'Queued for today and waiting on a resource owner.',
+                };
 
-                foreach ($updaters as $index => $user) {
-                    ActivityUpdate::factory()->create([
+                ActivityUpdate::updateOrCreate(
+                    [
                         'activity_id' => $activity->id,
                         'user_id' => $user->id,
-                        'activity_date' => $date,
-                        'status' => $index === $updaters->count() - 1
-                            ? fake()->randomElement(['done', 'done', 'done', 'pending', 'in_progress'])
-                            : fake()->randomElement(['pending', 'in_progress']),
-                        'created_at' => now()->subDays($daysAgo)->addHours(rand(8, 17))->addMinutes(rand(0, 59)),
-                    ]);
-                }
-            }
+                        'activity_date' => $activityDate,
+                    ],
+                    [
+                        'updater_name' => $user->name,
+                        'updater_department' => $user->department,
+                        'updater_job_title' => $user->job_title,
+                        'status' => $status,
+                        'remark' => $remark,
+                        'created_at' => now()->subDays($daysAgo)->setTime(9 + (($activityIndex + $daysAgo) % 8), (($activityIndex * 7) + $daysAgo) % 60),
+                        'updated_at' => now()->subDays($daysAgo)->setTime(9 + (($activityIndex + $daysAgo) % 8), (($activityIndex * 7) + $daysAgo) % 60),
+                    ],
+                );
+            });
         }
     }
 }

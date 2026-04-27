@@ -15,6 +15,24 @@ class ActivityUpdateFactory extends Factory
     protected $model = ActivityUpdate::class;
 
     /**
+     * Configure the factory to sync snapshot fields with the related user.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (ActivityUpdate $activityUpdate): void {
+            $user = $activityUpdate->user()->first();
+
+            if ($user) {
+                $activityUpdate->forceFill([
+                    'updater_name' => $user->name,
+                    'updater_department' => $user->department,
+                    'updater_job_title' => $user->job_title,
+                ])->save();
+            }
+        });
+    }
+
+    /**
      * Define the model's default state.
      *
      * @return array<string, mixed>
@@ -24,6 +42,9 @@ class ActivityUpdateFactory extends Factory
         return [
             'activity_id' => Activity::factory(),
             'user_id' => User::factory(),
+            'updater_name' => fake()->name(),
+            'updater_department' => fake()->randomElement(['Application Support', 'Infrastructure', 'Operations']),
+            'updater_job_title' => fake()->jobTitle(),
             'status' => fake()->randomElement(['pending', 'in_progress', 'done']),
             'remark' => fake()->optional(0.7)->sentence(),
             'activity_date' => fake()->dateTimeBetween('-7 days', 'now')->format('Y-m-d'),
@@ -35,7 +56,7 @@ class ActivityUpdateFactory extends Factory
      */
     public function done(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn(array $attributes) => [
             'status' => 'done',
             'remark' => 'Completed successfully.',
         ]);
@@ -46,7 +67,7 @@ class ActivityUpdateFactory extends Factory
      */
     public function pending(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn(array $attributes) => [
             'status' => 'pending',
         ]);
     }
@@ -56,7 +77,7 @@ class ActivityUpdateFactory extends Factory
      */
     public function inProgress(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn(array $attributes) => [
             'status' => 'in_progress',
         ]);
     }

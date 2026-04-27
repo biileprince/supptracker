@@ -30,6 +30,10 @@ class ProfileUpdateTest extends TestCase
             ->patch('/settings/profile', [
                 'name' => 'Test User',
                 'email' => 'test@example.com',
+                'employee_id' => 'EMP-9999',
+                'job_title' => 'Senior Support Engineer',
+                'department' => 'Application Support',
+                'phone' => '+233 555 000 111',
             ]);
 
         $response
@@ -40,6 +44,10 @@ class ProfileUpdateTest extends TestCase
 
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
+        $this->assertSame('EMP-9999', $user->employee_id);
+        $this->assertSame('Senior Support Engineer', $user->job_title);
+        $this->assertSame('Application Support', $user->department);
+        $this->assertSame('+233 555 000 111', $user->phone);
         $this->assertNull($user->email_verified_at);
     }
 

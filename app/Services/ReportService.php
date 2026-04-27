@@ -6,28 +6,58 @@ use App\Models\Activity;
 use App\Models\ActivityUpdate;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class ReportService
 {
-    /**
-     * Get summary data for a date range
-     */
-    public function getSummaryData(Carbon $startDate, Carbon $endDate): array
+    private function applyFilters(Builder $query, Carbon $startDate, Carbon $endDate, array $filters): Builder
     {
-        $activities = Activity::with(['updates' => function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('activity_date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->with('user:id,name');
-        }])->get();
+        $query->whereBetween('activity_date', [$startDate->toDateString(), $endDate->toDateString()]);
+
+        if (! empty($filters['activity_id'])) {
+            $query->where('activity_id', $filters['activity_id']);
+        }
+
+        if (! empty($filters['user_id'])) {
+            $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query;
+    }
+
+    /**
+            $query->whereBetween('activity_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()]);
+     */
+    public function getSummaryData(Carbon $startDate, Carbon $endDate, array $filters = []): array
+    {
+        $allUpdates = $this->applyFilters(
+            ActivityUpdate::query()->with(['activity:id,title,category', 'user:id,name,department,job_title']),
+            $startDate,
+            $endDate,
+            $filters,
+        )->get();
+
+        $activities = $allUpdates
+            ->groupBy('activity_id')
+            ->map(function (Collection $updatesForActivity) {
+                $activity = $updatesForActivity->first()?->activity;
+
+                return (object) [
+                    'id' => $activity?->id ?? $updatesForActivity->first()?->activity_id,
+                    'title' => $activity?->title ?? 'N/A',
+                    'category' => $activity?->category,
+                    'updates' => $updatesForActivity->values(),
+                ];
+            })
+            ->values();
 
         $totalActivities = $activities->count();
-        $daysInRange = $startDate->diffInDays($endDate) + 1;
-        $expectedTotalUpdates = $activities->where('is_recurring', true)->count() * $daysInRange
-                              + $activities->where('is_recurring', false)->count();
-
-        $updatesQuery = ActivityUpdate::whereBetween('activity_date', [$startDate->toDateString(), $endDate->toDateString()]);
-
-        // Group updates by date and get latest status per activity per day
-        $allUpdates = $updatesQuery->get();
+        $totalUpdates = $allUpdates->count();
 
         $completionByDate = [];
         $currentDate = clone $startDate;
@@ -54,37 +84,40 @@ class ReportService
         }
 
         $latestUniqueUpdates = $allUpdates->sortByDesc('created_at')->unique(function ($item) {
-            return $item->activity_id.'-'.$item->activity_date;
+            return $item->activity_id . '-' . $item->activity_date;
         });
 
         $totalDone = $latestUniqueUpdates->where('status', 'done')->count();
         $totalInProgress = $latestUniqueUpdates->where('status', 'in_progress')->count();
         $totalPending = $latestUniqueUpdates->where('status', 'pending')->count();
-        $missing = max(0, $expectedTotalUpdates - ($totalDone + $totalInProgress + $totalPending));
 
         return [
             'summary' => [
                 'totalActivities' => $totalActivities,
-                'expectedUpdates' => $expectedTotalUpdates,
-                'completionRate' => $expectedTotalUpdates > 0 ? round(($totalDone / $expectedTotalUpdates) * 100) : 0,
+                'expectedUpdates' => $totalUpdates,
+                'completionRate' => $totalUpdates > 0 ? round(($totalDone / $totalUpdates) * 100) : 0,
                 'statusStats' => [
                     ['name' => 'Done', 'value' => $totalDone, 'color' => '#22c55e'],
                     ['name' => 'In Progress', 'value' => $totalInProgress, 'color' => '#eab308'],
-                    ['name' => 'Pending/Missing', 'value' => $totalPending + $missing, 'color' => '#94a3b8'],
+                    ['name' => 'Pending', 'value' => $totalPending, 'color' => '#94a3b8'],
                 ],
             ],
             'chartData' => $completionByDate,
-            'recentUpdates' => $allUpdates->sortByDesc('created_at')->take(10)->load('user:id,name', 'activity:id,title')->values(),
+            'recentUpdates' => $allUpdates->sortByDesc('created_at')->take(10)->values(),
         ];
     }
 
     /**
      * Generate CSV export
      */
-    public function generateCsv(Carbon $startDate, Carbon $endDate)
+    public function generateCsv(Carbon $startDate, Carbon $endDate, array $filters = [])
     {
-        $updates = ActivityUpdate::whereBetween('activity_date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->with(['activity', 'user'])
+        $updates = $this->applyFilters(
+            ActivityUpdate::query()->with(['activity:id,title,category', 'user:id,name,department,job_title']),
+            $startDate,
+            $endDate,
+            $filters,
+        )
             ->orderBy('activity_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -124,13 +157,27 @@ class ReportService
     /**
      * Generate PDF export
      */
-    public function generatePdf(Carbon $startDate, Carbon $endDate)
+    public function generatePdf(Carbon $startDate, Carbon $endDate, array $filters = [])
     {
-        $activities = Activity::with(['updates' => function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('activity_date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->with('user:id,name,job_title')
-                ->orderBy('created_at', 'desc');
-        }])->orderBy('category')->orderBy('title')->get();
+        $updates = $this->applyFilters(
+            ActivityUpdate::query()->with(['activity:id,title,category', 'user:id,name,department,job_title']),
+            $startDate,
+            $endDate,
+            $filters,
+        )
+            ->orderBy('activity_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $activities = $updates->groupBy('activity_id')->map(function (Collection $updatesForActivity) {
+            $activity = $updatesForActivity->first()?->activity;
+
+            return (object) [
+                'title' => $activity?->title,
+                'category' => $activity?->category,
+                'updates' => $updatesForActivity->values(),
+            ];
+        })->values();
 
         $pdf = Pdf::loadView('reports.pdf', [
             'activities' => $activities,

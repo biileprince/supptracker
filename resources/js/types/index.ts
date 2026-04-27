@@ -60,6 +60,9 @@ export interface ActivityUpdate {
     activity_id: number;
     user_id: number;
     user?: { id: number; name: string; avatar?: string };
+    updater_name?: string | null;
+    updater_department?: string | null;
+    updater_job_title?: string | null;
     status: 'pending' | 'in_progress' | 'done';
     remark: string | null;
     activity_date: string;

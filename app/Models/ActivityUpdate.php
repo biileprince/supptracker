@@ -20,6 +20,9 @@ class ActivityUpdate extends Model
     protected $fillable = [
         'activity_id',
         'user_id',
+        'updater_name',
+        'updater_department',
+        'updater_job_title',
         'status',
         'remark',
         'activity_date',

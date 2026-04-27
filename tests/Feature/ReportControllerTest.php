@@ -49,12 +49,55 @@ class ReportControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('reports.index'));
 
         $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('reports/index')
-            ->has('summary')
-            ->has('chartData')
-            ->has('recentUpdates')
-            ->has('dateRange')
+        $response->assertInertia(
+            fn($page) => $page
+                ->component('reports/index')
+                ->has('summary')
+                ->has('chartData')
+                ->has('recentUpdates')
+                ->has('activities')
+                ->has('users')
+                ->has('filters')
+                ->has('dateRange')
+        );
+    }
+
+    public function test_reports_page_can_filter_by_activity_personnel_and_status(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $activity = Activity::factory()->create(['title' => 'Filtered Activity']);
+        $otherActivity = Activity::factory()->create(['title' => 'Other Activity']);
+
+        ActivityUpdate::factory()->create([
+            'activity_id' => $activity->id,
+            'user_id' => $user->id,
+            'status' => 'done',
+            'activity_date' => now()->toDateString(),
+        ]);
+
+        ActivityUpdate::factory()->create([
+            'activity_id' => $otherActivity->id,
+            'user_id' => $otherUser->id,
+            'status' => 'pending',
+            'activity_date' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($user)->get(route('reports.index', [
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->toDateString(),
+            'activity_id' => $activity->id,
+            'user_id' => $user->id,
+            'status' => 'done',
+        ]));
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn($page) => $page
+                ->component('reports/index')
+                ->where('filters.activityId', (string) $activity->id)
+                ->where('filters.userId', (string) $user->id)
+                ->where('filters.status', 'done')
         );
     }
 

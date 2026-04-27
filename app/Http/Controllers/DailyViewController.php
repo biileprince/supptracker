@@ -22,7 +22,7 @@ class DailyViewController extends Controller
 
         $activities = Activity::with(['updates' => function ($query) use ($date) {
             $query->whereDate('activity_date', $date->toDateString())
-                ->with('user:id,name,avatar')
+                ->with('user:id,name,department,job_title,avatar')
                 ->latest();
         }])
             ->orderBy('category')

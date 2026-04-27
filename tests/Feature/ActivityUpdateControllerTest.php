@@ -30,7 +30,39 @@ class ActivityUpdateControllerTest extends TestCase
             'status' => 'done',
             'remark' => 'Checked and verified.',
             'activity_date' => now()->format('Y-m-d 00:00:00'),
+            'updater_name' => $user->name,
+            'updater_department' => $user->department,
+            'updater_job_title' => $user->job_title,
         ]);
+    }
+
+    public function test_activity_update_snapshots_are_not_affected_by_later_profile_changes()
+    {
+        $user = User::factory()->create([
+            'name' => 'Initial Name',
+            'department' => 'Initial Department',
+            'job_title' => 'Initial Title',
+        ]);
+        $activity = Activity::factory()->create();
+
+        $this->actingAs($user)->post(route('activity_updates.store'), [
+            'activity_id' => $activity->id,
+            'status' => 'pending',
+            'remark' => 'Waiting on logs.',
+            'activity_date' => now()->toDateString(),
+        ]);
+
+        $user->update([
+            'name' => 'Updated Name',
+            'department' => 'Updated Department',
+            'job_title' => 'Updated Title',
+        ]);
+
+        $update = $activity->updates()->first();
+
+        $this->assertSame('Initial Name', $update->updater_name);
+        $this->assertSame('Initial Department', $update->updater_department);
+        $this->assertSame('Initial Title', $update->updater_job_title);
     }
 
     public function test_unauthenticated_user_cannot_store_activity_update()

@@ -1,14 +1,11 @@
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
-import { BarChart3, Download, FileText, TrendingUp, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
+import { type Activity, type BreadcrumbItem } from '@/types';
+import { Head, router } from '@inertiajs/react';
+import { AlertCircle, BarChart3, CheckCircle, Clock, Download, FileText, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
-import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, Legend
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -30,12 +27,15 @@ interface ChartDataPoint {
 
 interface RecentUpdate {
     id: number;
-    status: string;
+    status: 'pending' | 'in_progress' | 'done';
     remark: string | null;
     activity_date: string;
     created_at: string;
-    user?: { id: number; name: string };
-    activity?: { id: number; title: string };
+    updater_name?: string | null;
+    updater_department?: string | null;
+    updater_job_title?: string | null;
+    user?: { id: number; name: string; department?: string; job_title?: string };
+    activity?: { id: number; title: string; category?: string | null };
 }
 
 interface ReportProps {
@@ -47,28 +47,48 @@ interface ReportProps {
     };
     chartData: ChartDataPoint[];
     recentUpdates: RecentUpdate[];
+    activities: Activity[];
+    users: { id: number; name: string; department?: string; job_title?: string }[];
+    filters: {
+        activityId: string;
+        userId: string;
+        status: string;
+    };
     dateRange: {
         start: string;
         end: string;
     };
 }
 
-export default function ReportsIndex({ summary, chartData, recentUpdates, dateRange }: ReportProps) {
+export default function ReportsIndex({ summary, chartData, recentUpdates, activities, users, filters, dateRange }: ReportProps) {
     const [startDate, setStartDate] = useState(dateRange.start);
     const [endDate, setEndDate] = useState(dateRange.end);
+    const [activityId, setActivityId] = useState(filters.activityId);
+    const [userId, setUserId] = useState(filters.userId);
+    const [status, setStatus] = useState(filters.status);
 
     const applyFilters = () => {
-        router.get(route('reports.index'), {
-            start_date: startDate,
-            end_date: endDate,
-        }, { preserveState: true });
+        router.get(
+            route('reports.index'),
+            {
+                start_date: startDate,
+                end_date: endDate,
+                activity_id: activityId || undefined,
+                user_id: userId || undefined,
+                status: status || undefined,
+            },
+            { preserveState: true, preserveScroll: true },
+        );
     };
 
     const formatStatus = (status: string) => {
         switch (status) {
-            case 'done': return 'Done';
-            case 'in_progress': return 'In Progress';
-            default: return 'Pending';
+            case 'done':
+                return 'Done';
+            case 'in_progress':
+                return 'In Progress';
+            default:
+                return 'Pending';
         }
     };
 
@@ -76,14 +96,12 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Reports" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-4 max-w-6xl mx-auto w-full">
+            <div className="mx-auto flex h-full w-full max-w-6xl flex-1 flex-col gap-6 p-4">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
                         <h2 className="text-2xl font-bold tracking-tight">Reports</h2>
-                        <p className="text-muted-foreground">
-                            Analyze activity performance and export reports.
-                        </p>
+                        <p className="text-muted-foreground">Analyze activity performance and export reports.</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" asChild>
@@ -104,27 +122,88 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                 {/* Date Range Filter */}
                 <Card className="rounded-xl shadow-sm">
                     <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                        <div className="grid items-end gap-4 md:grid-cols-5">
                             <div className="grid gap-1.5">
-                                <label htmlFor="start_date" className="text-sm font-medium">From</label>
+                                <label htmlFor="start_date" className="text-sm font-medium">
+                                    From
+                                </label>
                                 <input
                                     id="start_date"
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
                                 />
                             </div>
                             <div className="grid gap-1.5">
-                                <label htmlFor="end_date" className="text-sm font-medium">To</label>
+                                <label htmlFor="end_date" className="text-sm font-medium">
+                                    To
+                                </label>
                                 <input
                                     id="end_date"
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
                                 />
                             </div>
+
+                            <div className="grid gap-1.5">
+                                <label htmlFor="activity_id" className="text-sm font-medium">
+                                    Activity
+                                </label>
+                                <select
+                                    id="activity_id"
+                                    value={activityId}
+                                    onChange={(e) => setActivityId(e.target.value)}
+                                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
+                                >
+                                    <option value="">All activities</option>
+                                    {activities.map((activity) => (
+                                        <option key={activity.id} value={activity.id}>
+                                            {activity.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid gap-1.5">
+                                <label htmlFor="user_id" className="text-sm font-medium">
+                                    Personnel
+                                </label>
+                                <select
+                                    id="user_id"
+                                    value={userId}
+                                    onChange={(e) => setUserId(e.target.value)}
+                                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
+                                >
+                                    <option value="">All personnel</option>
+                                    {users.map((user) => (
+                                        <option key={user.id} value={user.id}>
+                                            {user.name}
+                                            {user.department ? ` · ${user.department}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid gap-1.5">
+                                <label htmlFor="status" className="text-sm font-medium">
+                                    Status
+                                </label>
+                                <select
+                                    id="status"
+                                    value={status}
+                                    onChange={(e) => setStatus(e.target.value)}
+                                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
+                                >
+                                    <option value="">All statuses</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="done">Done</option>
+                                </select>
+                            </div>
+
                             <Button size="sm" className="h-9" onClick={applyFilters}>
                                 Apply
                             </Button>
@@ -138,10 +217,10 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                         <CardContent className="p-5">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-muted-foreground font-medium">Total Activities</p>
-                                    <p className="text-3xl font-bold mt-1">{summary.totalActivities}</p>
+                                    <p className="text-muted-foreground text-sm font-medium">Total Activities</p>
+                                    <p className="mt-1 text-3xl font-bold">{summary.totalActivities}</p>
                                 </div>
-                                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/50">
                                     <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                                 </div>
                             </div>
@@ -151,10 +230,10 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                         <CardContent className="p-5">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-muted-foreground font-medium">Completion Rate</p>
-                                    <p className="text-3xl font-bold mt-1">{summary.completionRate}%</p>
+                                    <p className="text-muted-foreground text-sm font-medium">Completion Rate</p>
+                                    <p className="mt-1 text-3xl font-bold">{summary.completionRate}%</p>
                                 </div>
-                                <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/50">
                                     <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
                                 </div>
                             </div>
@@ -164,10 +243,10 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                         <CardContent className="p-5">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-muted-foreground font-medium">Expected Updates</p>
-                                    <p className="text-3xl font-bold mt-1">{summary.expectedUpdates}</p>
+                                    <p className="text-muted-foreground text-sm font-medium">Updates Found</p>
+                                    <p className="mt-1 text-3xl font-bold">{summary.expectedUpdates}</p>
                                 </div>
-                                <div className="h-10 w-10 rounded-full bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-950/50">
                                     <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                                 </div>
                             </div>
@@ -203,7 +282,7 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                                     </BarChart>
                                 </ResponsiveContainer>
                             ) : (
-                                <div className="flex items-center justify-center h-[280px] text-muted-foreground">
+                                <div className="text-muted-foreground flex h-[280px] items-center justify-center">
                                     No data for the selected period.
                                 </div>
                             )}
@@ -216,7 +295,7 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                             <CardTitle className="text-base font-semibold">Status Distribution</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4">
-                            {summary.statusStats.some(s => s.value > 0) ? (
+                            {summary.statusStats.some((s) => s.value > 0) ? (
                                 <ResponsiveContainer width="100%" height={280}>
                                     <PieChart>
                                         <Pie
@@ -240,17 +319,11 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                                                 fontSize: '12px',
                                             }}
                                         />
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            iconSize={10}
-                                            wrapperStyle={{ fontSize: '12px' }}
-                                        />
+                                        <Legend verticalAlign="bottom" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (
-                                <div className="flex items-center justify-center h-[280px] text-muted-foreground">
-                                    No data available.
-                                </div>
+                                <div className="text-muted-foreground flex h-[280px] items-center justify-center">No data available.</div>
                             )}
                         </CardContent>
                     </Card>
@@ -265,38 +338,60 @@ export default function ReportsIndex({ summary, chartData, recentUpdates, dateRa
                         {Array.isArray(recentUpdates) && recentUpdates.length > 0 ? (
                             <div className="w-full overflow-auto">
                                 <table className="w-full text-left text-sm">
-                                    <thead className="border-b bg-muted/50">
+                                    <thead className="bg-muted/50 border-b">
                                         <tr>
                                             <th className="p-3 font-medium">Activity</th>
-                                            <th className="p-3 font-medium hidden sm:table-cell">Date</th>
+                                            <th className="hidden p-3 font-medium sm:table-cell">Date</th>
                                             <th className="p-3 font-medium">Personnel</th>
                                             <th className="p-3 font-medium">Status</th>
-                                            <th className="p-3 font-medium hidden md:table-cell">Remark</th>
+                                            <th className="hidden p-3 font-medium md:table-cell">Remark</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {recentUpdates.map((update) => (
-                                            <tr key={update.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                                                <td className="p-3 font-medium">{update.activity?.title ?? 'N/A'}</td>
-                                                <td className="p-3 hidden sm:table-cell text-muted-foreground">
+                                            <tr key={update.id} className="hover:bg-muted/50 border-b transition-colors last:border-0">
+                                                <td className="p-3 font-medium">
+                                                    {update.activity?.title ?? 'N/A'}
+                                                    {update.activity?.category && (
+                                                        <div className="text-muted-foreground mt-1 text-xs font-normal">
+                                                            {update.activity.category}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="text-muted-foreground hidden p-3 sm:table-cell">
                                                     {new Date(update.activity_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                                 </td>
-                                                <td className="p-3">{update.user?.name ?? 'N/A'}</td>
                                                 <td className="p-3">
-                                                    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
-                                                        update.status === 'done'
-                                                            ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400'
-                                                            : update.status === 'in_progress'
-                                                                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400'
-                                                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                                                    }`}>
-                                                        {update.status === 'done' && <CheckCircle className="w-3 h-3" />}
-                                                        {update.status === 'in_progress' && <Clock className="w-3 h-3" />}
-                                                        {update.status === 'pending' && <AlertCircle className="w-3 h-3" />}
+                                                    <div className="font-medium">{update.updater_name ?? update.user?.name ?? 'N/A'}</div>
+                                                    {(update.updater_department ||
+                                                        update.updater_job_title ||
+                                                        update.user?.department ||
+                                                        update.user?.job_title) && (
+                                                        <div className="text-muted-foreground text-xs">
+                                                            {update.updater_department ?? update.user?.department}
+                                                            {(update.updater_job_title ?? update.user?.job_title)
+                                                                ? ` · ${update.updater_job_title ?? update.user?.job_title}`
+                                                                : ''}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-3">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                            update.status === 'done'
+                                                                ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400'
+                                                                : update.status === 'in_progress'
+                                                                  ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400'
+                                                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                                                        }`}
+                                                    >
+                                                        {update.status === 'done' && <CheckCircle className="h-3 w-3" />}
+                                                        {update.status === 'in_progress' && <Clock className="h-3 w-3" />}
+                                                        {update.status === 'pending' && <AlertCircle className="h-3 w-3" />}
                                                         {formatStatus(update.status)}
                                                     </span>
                                                 </td>
-                                                <td className="p-3 hidden md:table-cell text-muted-foreground max-w-[200px] truncate">
+                                                <td className="text-muted-foreground hidden max-w-[200px] truncate p-3 md:table-cell">
                                                     {update.remark || '—'}
                                                 </td>
                                             </tr>
