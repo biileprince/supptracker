@@ -17,6 +17,7 @@ class DashboardControllerTest extends TestCase
         parent::setUp();
         $this->withoutVite();
     }
+
     public function test_auth_user_can_view_dashboard(): void
     {
         $user = User::factory()->create();
