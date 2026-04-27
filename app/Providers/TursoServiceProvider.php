@@ -24,7 +24,7 @@ class TursoServiceProvider extends ServiceProvider
 
     protected function createLibsqlConnection($config, $name)
     {
-        $url = $config['url'] ?? null;
+        $url = $config['libsql_url'] ?? $config['url'] ?? null;
         $token = $config['password'] ?? $config['auth_token'] ?? null;
 
         if (empty($url) || empty($token)) {
