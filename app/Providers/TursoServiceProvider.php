@@ -35,6 +35,9 @@ class TursoServiceProvider extends ServiceProvider
         }
 
         // Try native SDK first (PHP 8.3+ with FFI)
+        $database = $config['database'] ?? '';
+        $prefix = $config['prefix'] ?? '';
+
         try {
             if (class_exists('Libsql\Database')) {
                 $db = new \Libsql\Database($url, $token);
