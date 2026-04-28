@@ -15,6 +15,8 @@ class TursoPdoAdapter extends \PDO
 {
     /** @var array<int, mixed> */
     private array $attributes = [];
+    
+    public string $lastInsertId = '0';
 
     public function __construct(
         private readonly string $url,
@@ -25,22 +27,35 @@ class TursoPdoAdapter extends \PDO
 
     public function prepare(string $query, array $options = []): \PDOStatement|false
     {
-        return new TursoStatement($this->url, $this->token, $query);
+        return new TursoStatement($this, $this->url, $this->token, $query);
     }
 
     public function exec(string $statement): int|false
     {
+        $statements = [['q' => $statement]];
+        $isInsert = preg_match('/^\s*(INSERT|REPLACE)\s/i', $statement);
+        
+        if ($isInsert) {
+            $statements[] = ['q' => 'SELECT last_insert_rowid() AS last_id'];
+        }
+
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$this->token}",
         ])->post($this->url, [
-            'statements' => [$statement],
+            'statements' => $statements,
         ]);
 
         if (! $response->successful()) {
             throw new \PDOException('Query failed: ' . $response->body());
         }
 
-        $result = $response->json()[0]['results'] ?? [];
+        $results = $response->json() ?? [];
+        
+        if ($isInsert && isset($results[1]['results']['rows'][0][0])) {
+            $this->lastInsertId = (string) $results[1]['results']['rows'][0][0];
+        }
+
+        $result = $results[0]['results'] ?? [];
         return $result['affected_row_count'] ?? 0;
     }
 
@@ -63,11 +78,7 @@ class TursoPdoAdapter extends \PDO
 
     public function lastInsertId(?string $name = null): string|false
     {
-        $stmt = clone $this->prepare('SELECT last_insert_rowid() AS id');
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        return $row ? (string) ($row['id'] ?? '0') : '0';
+        return $this->lastInsertId;
     }
 
     public function inTransaction(): bool
@@ -121,6 +132,7 @@ class TursoStatement extends \PDOStatement
     private int $defaultFetchMode = PDO::FETCH_BOTH;
 
     public function __construct(
+        private readonly TursoPdoAdapter $pdo,
         private readonly string $url,
         private readonly string $token,
         private readonly string $sql,
@@ -147,22 +159,35 @@ class TursoStatement extends \PDOStatement
             $statement['params'] = $args;
         }
 
+        $statements = [$statement];
+        $isInsert = preg_match('/^\s*(INSERT|REPLACE)\s/i', $sql);
+        
+        if ($isInsert) {
+            $statements[] = ['q' => 'SELECT last_insert_rowid() AS last_id'];
+        }
+
         // Send to root URL (V1 API) instead of /execute
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$this->token}",
         ])->post($this->url, [
-            'statements' => [$statement],
+            'statements' => $statements,
         ]);
 
         if (! $response->successful()) {
             throw new \PDOException('Query failed: ' . $response->body());
         }
 
+        $results = $response->json() ?? [];
+        
         // V1 API response format is an array of results
-        $result = $response->json()[0]['results'] ?? [];
+        $result = $results[0]['results'] ?? [];
         
         if (isset($result['error'])) {
             throw new \PDOException('Query error: ' . $result['error']['message']);
+        }
+        
+        if ($isInsert && isset($results[1]['results']['rows'][0][0])) {
+            $this->pdo->lastInsertId = (string) $results[1]['results']['rows'][0][0];
         }
         
         $this->rows = [];
