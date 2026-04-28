@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use App\Database\Turso\TursoPdoAdapter;
-use Illuminate\Database\Connection;
+use Illuminate\Database\SQLiteConnection;
 use Illuminate\Support\ServiceProvider;
 
 class TursoServiceProvider extends ServiceProvider
@@ -22,7 +22,7 @@ class TursoServiceProvider extends ServiceProvider
     /**
      * @param  array<string, mixed>  $config
      */
-    protected function createLibsqlConnection(array $config, string $name): Connection
+    protected function createLibsqlConnection(array $config, string $name): SQLiteConnection
     {
         $url = $config['libsql_url'] ?? $config['url'] ?? null;
         $token = $config['password'] ?? null;
@@ -55,6 +55,6 @@ class TursoServiceProvider extends ServiceProvider
 
         $pdo = new TursoPdoAdapter($url, $token);
 
-        return new Connection($pdo, $database, $prefix, $config);
+        return new SQLiteConnection($pdo, $database, $prefix, $config);
     }
 }

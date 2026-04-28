@@ -32,6 +32,10 @@ class TursoPdoAdapter extends \PDO
 
     public function exec(string $statement): int|false
     {
+        if (preg_match('/^\s*PRAGMA/i', $statement)) {
+            return 0;
+        }
+
         $statements = [['q' => $statement]];
         $isInsert = preg_match('/^\s*(INSERT|REPLACE)\s/i', $statement);
         
@@ -157,6 +161,11 @@ class TursoStatement extends \PDOStatement
         $statement = ['q' => $sql];
         if (! empty($args)) {
             $statement['params'] = $args;
+        }
+
+        if (preg_match('/^\s*PRAGMA/i', $sql)) {
+            $this->rowCount = 0;
+            return true;
         }
 
         $statements = [$statement];
