@@ -13,7 +13,7 @@ class ReportService
 {
     private function applyFilters(Builder $query, Carbon $startDate, Carbon $endDate, array $filters): Builder
     {
-        $query->whereBetween('activity_date', [$startDate->toDateString(), $endDate->toDateString()]);
+        $query->whereBetween('activity_date', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()]);
 
         if (! empty($filters['activity_id'])) {
             $query->where('activity_id', $filters['activity_id']);
