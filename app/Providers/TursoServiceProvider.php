@@ -41,6 +41,15 @@ class TursoServiceProvider extends ServiceProvider
             );
         }
 
+        // The HTTP adapter requires an http(s) URL, so convert libsql:// if present
+        if (str_starts_with($url, 'libsql://')) {
+            $url = 'https://' . substr($url, 9);
+        } elseif (str_starts_with($url, 'libsql+wss://')) {
+            $url = 'https://' . substr($url, 13);
+        } elseif (str_starts_with($url, 'libsql+ws://')) {
+            $url = 'http://' . substr($url, 12);
+        }
+
         $database = $config['database'] ?? '';
         $prefix = $config['prefix'] ?? '';
 

@@ -66,10 +66,10 @@ For production deployment with [Turso](https://turso.tech) (remote SQLite):
     TURSO_AUTH_TOKEN=your-auth-token
     ```
 
-   Seeded admin login for the demo database:
+    Seeded admin login for the demo database:
 
-   - Email: `admin@supptracker.com`
-   - Password: `password`
+    - Email: `admin@supptracker.com`
+    - Password: `password`
 
 4. **Run migrations on Turso**
 

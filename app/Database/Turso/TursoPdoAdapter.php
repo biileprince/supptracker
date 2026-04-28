@@ -11,7 +11,7 @@ use PDO;
  * Enables Laravel to use Turso/libSQL over HTTP without requiring
  * the native libsql PHP extension or FFI.
  */
-class TursoPdoAdapter
+class TursoPdoAdapter extends \PDO
 {
     /** @var array<int, mixed> */
     private array $attributes = [];
@@ -23,42 +23,48 @@ class TursoPdoAdapter
         $this->attributes[PDO::ATTR_ERRMODE] = PDO::ERRMODE_EXCEPTION;
     }
 
-    public function prepare(string $sql, array $options = []): TursoStatement
+    public function prepare(string $query, array $options = []): \PDOStatement|false
     {
-        return new TursoStatement($this->url, $this->token, $sql);
+        return new TursoStatement($this->url, $this->token, $query);
     }
 
-    public function exec(string $sql): int
+    public function exec(string $statement): int|false
     {
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$this->token}",
-        ])->post("{$this->url}/execute", [
-            'statements' => [['q' => $sql]],
+        ])->post($this->url, [
+            'statements' => [$statement],
         ]);
 
         if (! $response->successful()) {
-            throw new \PDOException('Query failed: '.$response->body());
+            throw new \PDOException('Query failed: ' . $response->body());
         }
 
-        return $response->json()['results'][0]['affected_rows'] ?? 0;
+        $result = $response->json()[0]['results'] ?? [];
+        return $result['affected_row_count'] ?? 0;
     }
 
-    public function query(string $sql, ?int $fetchMode = null): TursoStatement
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): \PDOStatement|false
     {
-        $stmt = $this->prepare($sql);
+        $stmt = clone $this->prepare($query);
         $stmt->execute();
+        
+        if ($fetchMode !== null) {
+            $stmt->setFetchMode($fetchMode, ...$fetchModeArgs);
+        }
 
         return $stmt;
     }
 
-    public function quote(string $string, int $type = PDO::PARAM_STR): string
+    public function quote(string $string, int $type = PDO::PARAM_STR): string|false
     {
-        return "'".str_replace("'", "''", $string)."'";
+        return "'" . str_replace("'", "''", $string) . "'";
     }
 
-    public function lastInsertId(?string $name = null): string
+    public function lastInsertId(?string $name = null): string|false
     {
-        $stmt = $this->query('SELECT last_insert_rowid() AS id');
+        $stmt = clone $this->prepare('SELECT last_insert_rowid() AS id');
+        $stmt->execute();
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row ? (string) ($row['id'] ?? '0') : '0';
@@ -100,7 +106,7 @@ class TursoPdoAdapter
 /**
  * PDOStatement-compatible wrapper for Turso HTTP API responses.
  */
-class TursoStatement
+class TursoStatement extends \PDOStatement
 {
     /** @var array<int, mixed> */
     private array $bindings = [];
@@ -111,6 +117,8 @@ class TursoStatement
     private int $rowIndex = 0;
 
     private int $rowCount = 0;
+    
+    private int $defaultFetchMode = PDO::FETCH_BOTH;
 
     public function __construct(
         private readonly string $url,
@@ -139,59 +147,76 @@ class TursoStatement
             $statement['params'] = $args;
         }
 
+        // Send to root URL (V1 API) instead of /execute
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$this->token}",
-        ])->post("{$this->url}/execute", [
+        ])->post($this->url, [
             'statements' => [$statement],
         ]);
 
         if (! $response->successful()) {
-            throw new \PDOException('Query failed: '.$response->body());
+            throw new \PDOException('Query failed: ' . $response->body());
         }
 
-        $result = $response->json()['results'][0] ?? [];
-        $this->rows = $result['rows'] ?? [];
-        $this->rowCount = ! empty($result['rows']) ? count($result['rows']) : ($result['affected_rows'] ?? 0);
+        // V1 API response format is an array of results
+        $result = $response->json()[0]['results'] ?? [];
+        
+        if (isset($result['error'])) {
+            throw new \PDOException('Query error: ' . $result['error']['message']);
+        }
+        
+        $this->rows = [];
+        if (!empty($result['columns']) && isset($result['rows'])) {
+            foreach ($result['rows'] as $row) {
+                // Map the array of values to associative array with column names
+                $this->rows[] = array_combine($result['columns'], $row);
+            }
+        }
+
+        $this->rowCount = isset($result['rows']) ? count($result['rows']) : ($result['affected_row_count'] ?? 0);
         $this->rowIndex = 0;
 
         return true;
     }
 
-    public function fetch(int $fetchMode = PDO::FETCH_BOTH): mixed
+    public function fetch(int $mode = PDO::FETCH_BOTH, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed
     {
         if ($this->rowIndex >= count($this->rows)) {
             return false;
         }
 
         $row = $this->rows[$this->rowIndex++];
+        $mode = $mode === PDO::FETCH_BOTH ? $this->defaultFetchMode : $mode;
 
-        return match ($fetchMode) {
+        return match ($mode) {
             PDO::FETCH_ASSOC => (array) $row,
             PDO::FETCH_OBJ => (object) $row,
             default => array_merge((array) $row, array_values((array) $row)),
         };
     }
 
-    public function fetchAll(int $fetchMode = PDO::FETCH_BOTH): array
+    public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array
     {
         $results = [];
-        while ($row = $this->fetch($fetchMode)) {
+        $actualMode = $mode === PDO::FETCH_DEFAULT ? $this->defaultFetchMode : $mode;
+        
+        while ($row = $this->fetch($actualMode)) {
             $results[] = $row;
         }
 
         return $results;
     }
 
-    public function fetchColumn(int $columnKey = 0): mixed
+    public function fetchColumn(int $column = 0): mixed
     {
         $row = $this->fetch(PDO::FETCH_ASSOC);
         if (! $row) {
-            return null;
+            return false;
         }
 
         $values = array_values($row);
 
-        return $values[$columnKey] ?? null;
+        return $values[$column] ?? false;
     }
 
     public function rowCount(): int
@@ -199,7 +224,7 @@ class TursoStatement
         return $this->rowCount;
     }
 
-    public function bindValue(int|string $param, mixed $value, int $type = PDO::PARAM_STR): bool
+    public function bindValue(string|int $param, mixed $value, int $type = PDO::PARAM_STR): bool
     {
         if (is_int($param)) {
             $this->bindings[$param - 1] = $value;
@@ -207,6 +232,12 @@ class TursoStatement
             $this->bindings[$param] = $value;
         }
 
+        return true;
+    }
+    
+    public function setFetchMode(int $mode, mixed ...$args): bool
+    {
+        $this->defaultFetchMode = $mode;
         return true;
     }
 
